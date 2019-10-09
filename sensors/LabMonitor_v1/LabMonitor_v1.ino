@@ -1,10 +1,16 @@
 #include <Ultrasonic.h>
 
-#include <Config.h>
-#include <EasyBuzzer.h>
-
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
+
+#include <WiFi.h>
+#include <WiFiUdp.h>
+#include <NTPClient.h>
+#include <FirebaseESP32.h>
+
+#include <DNSServer.h>    // Local DNS Server used for redirecting all requests to the configuration portal
+#include <WebServer.h>    // Local WebServer used to serve the configuration portal
+#include <WiFiManager.h>  // WiFi Configuration Manager
 
 #include <Adafruit_Sensor.h>
 #include <DHT.h>
@@ -28,15 +34,16 @@
 
 #define EULER 2.718281828459045235360287471352
 
+#define WIFI_SSID "GRT-PAV3"
+#define WIFI_PWD "GRT@pav3#2018"
+
+#define FIREBASE_HOST "greatlabmonitor.firebaseio.com"
+#define FIREBASE_AUTH "oM5vOHooBjlTwjFA5QkvUQpF1AbSdM1Fl2NO1JNC"
+
 DHT dht(DHTPIN, DHTTYPE);                     // Create DHT sensor considering port and type
 LiquidCrystal_I2C lcd(0x27,16,2);             // Set the LCD address to 0x27 for a 16 chars and 2 line display
 Ultrasonic ultrasonic(TRIGGER_PIN, ECHO_PIN); // Create Ultrasonic considering Trigger and Echo pins
-
-float RS_gas = 0;
-float ratio = 0;
-float sensorValue = 0;
-float sensor_volt = 0;
-float R0 = -200.0;
+FirebaseData firebaseData;
 
 /**
  * LabMonitor Hardware v1 20191007
@@ -64,18 +71,17 @@ float R0 = -200.0;
  *  >> Please, don't change it!!!
  * 
  * Setup function
+ * 
+ * Useful links:
  * https://randomnerdtutorials.com/esp32-dht11-dht22-temperature-humidity-sensor-arduino-ide/
  * https://github.com/evert-arias/EasyBuzzer
  * https://www.fernandok.com/2017/12/sensor-ultrassonico-com-esp32.html
  * https://www.arduinoecia.com.br/sensor-de-som-ky-038-microfone-arduino/
+ * 
 **/
-
-void done() {
-  Serial.println("Bee!");
-}
-
 void setup() {
-  Serial.begin(9600); // Initialize serial communications
+  /* Initialize serial communications */
+  Serial.begin(9600);
   
   /* Initializing the pins as in/output pins */
   pinMode(LDR_SENSOR, INPUT);
@@ -84,32 +90,199 @@ void setup() {
   pinMode(LED_YELLOW, OUTPUT);
   pinMode(LED_GREEN, OUTPUT);
 
-  /* Initialize the lcd (SDA, SCL) */
+  /* Initializing the lcd (SDA, SCL) */
   lcd.begin(I2C_SDA, I2C_SCL);    
   lcd.setCursor(0,0);
   lcd.backlight();
   lcd.clear();
   lcd.print("Lab. Monitor v1");
 
-  EasyBuzzer.setPin(BUZZER_PIN);
-  /* Start a beeping sequence. */
-  EasyBuzzer.singleBeep(1000, 500, done);
+  connectWifi();
+  connectFirebase();
 
+  /* Initializing the DHT sensor */
   dht.begin();
   delay(5000);
-  EasyBuzzer.stopBeep();
+  beep(220, 200, 3);
+  Serial.println(F("GREat Lab Monitor Hardware: setup completed successfully!"));
 }
 
-void loop() {
+/**
+ * Save sensor raw data in Firebase database
+ * @param date DD/mm/YYYY HH:MM:SS
+ * @param temperature from DHT22
+ * @param humidity from DHT22
+ * @param co2 from MQ7 sensor
+ * @param lumens from LDR sensor
+ * @param distance from ultrasonic
+ * @param noise from KY-038 sensor
+ **/
+void saveSensorData(String date, String temperature, String humidity, String co2, String lumens, String distance, String noise){
+  String json = String("{\"date\":\"" + date + "\",\"temperature\":\"" + temperature + "\",\"humidity\":\"" + humidity + "\",\"co2\":\"" + co2 + "\",\"lumens\":\"" + lumens + "\",\"distance\":\"" + distance + "\",\"noise\":\"" + noise + "\"}");
+  Serial.println(json);
+  Firebase.pushJSON(firebaseData, "envs/great/lab10/registers", json);
+}
+
+/**
+ * Connect to WiFi method.
+ * In this case, we have used a hard coded network
+ * to improve the performance and avoid problems in
+ * presentation.
+ */
+void connectWifi(){
+  WiFi.begin(WIFI_SSID, WIFI_PWD);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);Serial.println("Connecting to WiFi...");
+    printMessageLCD("GREat Lab Monitor", "Connecting...");
+  }
+  Serial.println("Connected to the WiFi network");
+  printMessageLCD("GREat Lab Monitor", "Connected!!!");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
+/**
+ * Firebase connection methods:
+ * 
+ * - Connect to firebase database;
+ * - Close connection with firebase (not used yet);
+ * - Reconnect to firebase database (not used yet);
+ */
+void connectFirebase(){
+  Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
+  Firebase.reconnectWiFi(true);
+  //Firebase.setMaxRetry(firebaseData, 3);
+}
+
+void endFirebaseConnection(){
+  //Quit Firebase and release all resources
+  Firebase.end(firebaseData);
+}
+
+void reconnectFirebaseConnection(){
+   endFirebaseConnection();
+   connectFirebase();
+}
+
+/**
+ * Get actual date using NTP server
+ * @return actual date as string
+ */
+String getActualDate(){
+  char* servidorNTP = "a.st1.ntp.br";
+  int fusoHorario = -10800;
+  
+  WiFiUDP ntpUDP;
+  NTPClient timeClient(ntpUDP, servidorNTP, fusoHorario);
+  
+  timeClient.begin();
+  String date = "";
+  while(true){
+    timeClient.update();
+    int year = timeClient.getYear();
+    Serial.println(year);
+    date = timeClient.getFullFormattedTime();
+
+    if(year >= 2019) break;
+    delay(500);
+  }
+     
+  timeClient.end();
+  return date;
+}
+
+/**
+ * Print welcome message in LCD Display
+ */
+void printMessageLCD(String firstLineMsg, String secondLineMsg){
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print(firstLineMsg);
+  lcd.setCursor(0,1);
+  lcd.print(secondLineMsg);
+  //lcd.noBacklight();
+}
+
+/**
+ * Get distance using ultrasonic sensor
+ * @return distance_value as a String
+ **/
+String getDistance(){
+  long microsec = ultrasonic.timing();
+  return String(ultrasonic.convert(microsec, Ultrasonic::CM), 2);
+}
+
+
+/**
+ * Get environment noise from KY-038 sensor
+ * @return ky038_value as a String
+ **/
+String getKY38Value(){
+  return String(analogRead(KY38_PIN), 2);
+}
+
+/**
+ * Get environment CO2 concentration from MQ7 sensor
+ * @return mq7_value as a String
+ **/
+String getMQ7Value(){
+  float sensorValue = analogRead(MQ7_SENSOR);
+  return String(sensorValue, 2);
+}
+
+/**
+ * Get environment temperature from DHT22
+ * @return temperature as a String
+ **/
+String getTemperature(){
+  return String(dht.readTemperature(), 2);
+}
+
+/**
+ * Get environment humidity from DHT22
+ * @return humidity as a String
+ **/
+String getHumidity(){
+  return String(dht.readHumidity(), 2);
+}
+
+/**
+ * Get lumens value from LDR sensor 
+ * @return lumens as integer
+ **/
+int getLumenValue(){
+  /* http://eletronicaapolo.com.br/novidades/o-guia-completo-das-lanternas/ */
+  int value = analogRead(LDR_SENSOR) * -1;
+  value = map(value, -4095, 0, 1, 850);
+  return value;
+}
+
+/**
+ * My beep function 
+ * 
+ * @param frequency
+ * @param duration
+ * @param times
+ **/
+void beep(int freq, int duration, int times){
+  for(int i = 0; i < times; i++){
+    int channel = 0, resolution = 8;
+    ledcSetup(channel, freq, resolution);
+    ledcAttachPin(BUZZER_PIN, channel);
+    ledcWriteTone(channel, freq);
+    delay(100);
+    ledcDetachPin(BUZZER_PIN);
+  }
+}
+
+void printHelpFunc(){
   long microsec = ultrasonic.timing();
   
-  /* Always call this function in the loop for EasyBuzzer to work. */
-  EasyBuzzer.update();
-
   Serial.print("KY-38 Value: ");
-  Serial.print(analogRead(KY38_PIN));
+  int noise = analogRead(KY38_PIN);
+  Serial.print(noise);
   
-  sensorValue = analogRead(MQ7_SENSOR);
+  float sensorValue = analogRead(MQ7_SENSOR);
   Serial.print(" MQ7 Value: ");
   Serial.print(sensorValue);
   
@@ -128,29 +301,15 @@ void loop() {
   Serial.print(F("Distance: "));
   Serial.print(ultrasonic.convert(microsec, Ultrasonic::CM));
   Serial.println(F("cm"));
-
-  delay(3000);
 }
 
-String getTemperature(){
-  return String(dht.readTemperature(), 2);
-}
+/**
+ * Main loop.
+ */
+void loop() {
+  printMessageLCD("GREat Lab Monitor", "Monitoring...");
 
-
-String getHumidity(){
-  return String(dht.readHumidity(), 2);
-}
-
-int getLumenValue(){
-  /* http://eletronicaapolo.com.br/novidades/o-guia-completo-das-lanternas/ */
-  int value = analogRead(LDR_SENSOR) * -1;
-  value = map(value, -4095, 0, 1, 1000);
-  return value;
-}
-
-void beep(unsigned char delayms) { //creating function
-  ledcWrite(BUZZER_PIN, 20); //Setting pin to high
-  delay(delayms);             //Delaying
-  ledcWrite(BUZZER_PIN ,0);  //Setting pin to LOW
-  delay(delayms);             //Delaying 
+  saveSensorData(getActualDate(), getTemperature(), getHumidity(), getMQ7Value(), String(getLumenValue()), getDistance(), getKY38Value());
+  
+  delay(60000);
 }
