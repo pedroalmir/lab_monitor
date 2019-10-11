@@ -105,6 +105,9 @@ void setup() {
   delay(5000);
   beep(220, 200, 3);
   Serial.println(F("GREat Lab Monitor Hardware: setup completed successfully!"));
+
+  Firebase.setString(firebaseData, "envs/great/lab10/info/status", "Normal");
+  Firebase.setJSON(firebaseData, "envs/great/lab10/info/sensors", "{\"online\": [\"temperature\", \"humidity\", \"luminosity\", \"co2\"], \"offline\": [\"distance\", \"noise\"]}");
 }
 
 /**
