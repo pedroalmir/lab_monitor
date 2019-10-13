@@ -7,6 +7,7 @@
 #include <WiFiUdp.h>
 #include <NTPClient.h>
 #include <FirebaseESP32.h>
+#include <ArduinoJson.h>
 
 #include <DNSServer.h>    // Local DNS Server used for redirecting all requests to the configuration portal
 #include <WebServer.h>    // Local WebServer used to serve the configuration portal
@@ -44,6 +45,10 @@ DHT dht(DHTPIN, DHTTYPE);                     // Create DHT sensor considering p
 LiquidCrystal_I2C lcd(0x27,16,2);             // Set the LCD address to 0x27 for a 16 chars and 2 line display
 Ultrasonic ultrasonic(TRIGGER_PIN, ECHO_PIN); // Create Ultrasonic considering Trigger and Echo pins
 FirebaseData firebaseData;
+
+WiFiUDP Udp;
+unsigned int localUdpPort = 4445;                     // local port to listen on
+char incomingPacket[255];                             // buffer for incoming packets
 
 /**
  * LabMonitor Hardware v1 20191007
@@ -100,14 +105,18 @@ void setup() {
   connectWifi();
   connectFirebase();
 
+  Firebase.setString(firebaseData, "envs/great/lab10/info/status", "Normal");
+  Firebase.setJSON(firebaseData, "envs/great/lab10/info/sensors", "{\"online\": [\"temperature\", \"humidity\", \"luminosity\", \"co2\"], \"offline\": [\"distance\", \"noise\"]}");
+
+  Udp.begin(localUdpPort);
+  Serial.printf("Now listening at IP %s, UDP port %d\n", WiFi.localIP().toString().c_str(), localUdpPort);
+  
   /* Initializing the DHT sensor */
   dht.begin();
+  
   delay(5000);
   beep(220, 200, 3);
   Serial.println(F("GREat Lab Monitor Hardware: setup completed successfully!"));
-
-  Firebase.setString(firebaseData, "envs/great/lab10/info/status", "Normal");
-  Firebase.setJSON(firebaseData, "envs/great/lab10/info/sensors", "{\"online\": [\"temperature\", \"humidity\", \"luminosity\", \"co2\"], \"offline\": [\"distance\", \"noise\"]}");
 }
 
 /**
@@ -168,6 +177,23 @@ void reconnectFirebaseConnection(){
 }
 
 /**
+ * Get data from Firebase in string format
+ */
+String getFirebaseStringData(String tag){
+  Firebase.getString(firebaseData, tag);
+  return firebaseData.stringData();
+}
+
+/**
+ * Get data from Firebase in json format
+ */
+String getFirebaseJsonData(String tag){
+  Firebase.getJSON(firebaseData, tag);
+  delay(1000);
+  return firebaseData.jsonData();
+}
+
+/**
  * Get actual date using NTP server
  * @return actual date as string
  */
@@ -183,7 +209,7 @@ String getActualDate(){
   while(true){
     timeClient.update();
     int year = timeClient.getYear();
-    Serial.println(year);
+    //Serial.println(year);
     date = timeClient.getFullFormattedTime();
 
     if(year >= 2019) break;
@@ -273,8 +299,36 @@ void beep(int freq, int duration, int times){
     ledcSetup(channel, freq, resolution);
     ledcAttachPin(BUZZER_PIN, channel);
     ledcWriteTone(channel, freq);
-    delay(100);
+    delay(duration);
     ledcDetachPin(BUZZER_PIN);
+    delay(500);
+  }
+}
+
+/**
+ * LEDs control function
+ * @param color [red, yellow, green]
+ * @param status [on, off]
+ **/
+void ledsControl(String color, String lStatus){
+  if(String(lStatus) == "off"){
+    digitalWrite(LED_RED, LOW);
+    digitalWrite(LED_YELLOW, LOW);
+    digitalWrite(LED_GREEN, LOW);
+  }else if(String(lStatus) == "on"){
+    if(String(color) == "red"){
+      digitalWrite(LED_RED, HIGH);
+      digitalWrite(LED_YELLOW, LOW);
+      digitalWrite(LED_GREEN, LOW);
+    }else if(String(color) == "yellow"){
+      digitalWrite(LED_RED, LOW);
+      digitalWrite(LED_YELLOW, HIGH);
+      digitalWrite(LED_GREEN, LOW);
+    } else if(String(color) == "green"){
+      digitalWrite(LED_RED, LOW);
+      digitalWrite(LED_YELLOW, LOW);
+      digitalWrite(LED_GREEN, HIGH);
+    }
   }
 }
 
@@ -306,13 +360,57 @@ void printHelpFunc(){
   Serial.println(F("cm"));
 }
 
+void processActuators(){
+  String json = getFirebaseJsonData("envs/great/lab10/info/actuators");
+  //Serial.println(json);
+  
+  StaticJsonBuffer<300> jsonBuffer;
+  JsonObject& root = jsonBuffer.parseObject(json);
+
+  const char* color = root["led"]["color"];
+  const char* lStatus = root["led"]["status"];
+  ledsControl(String(color), String(lStatus));
+  
+  const char* bStatus = root["buzzer"]["status"];
+  if(String(bStatus) == "pending"){
+    int duration = root["buzzer"]["duration"];
+    int freq = root["buzzer"]["freq"];
+    int times = root["buzzer"]["times"];
+    
+    beep(freq, duration, times);
+    Firebase.setString(firebaseData, "envs/great/lab10/info/actuators/buzzer/status", "done");
+  }
+}
+
 /**
  * Main loop.
  */
+int cont = 60;
 void loop() {
-  printMessageLCD("GREat Lab Monitor", "Monitoring...");
-
-  saveSensorData(getActualDate(), getTemperature(), getHumidity(), getMQ7Value(), String(getLumenValue()), getDistance(), getKY38Value());
+  if(cont == 0) cont = 60;
   
-  delay(60000);
+  processActuators();
+  
+  /* Checking broadcast messages... */
+  int packetSize = Udp.parsePacket();
+  if (packetSize){
+    // Receive incoming UDP packets
+    Serial.printf("Received %d bytes from %s, port %d\n", packetSize, Udp.remoteIP().toString().c_str(), Udp.remotePort());
+    int len = Udp.read(incomingPacket, 255);
+    if (len > 0) incomingPacket[len] = 0;
+    Serial.printf("UDP packet contents: %s\n", incomingPacket);
+
+    // Send back a reply, to the IP address and port we got the packet from
+    Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
+    Udp.print("Hi. I am here! Saving data in: greatlabmonitor.firebaseio.com");
+    Udp.endPacket();
+  }
+
+  if(cont == 60){
+    printMessageLCD("GREat Lab Monitor", "Monitoring...");
+    saveSensorData(getActualDate(), getTemperature(), getHumidity(), getMQ7Value(), String(getLumenValue()), getDistance(), getKY38Value());
+  }
+
+  cont--;
+  delay(1000);
 }

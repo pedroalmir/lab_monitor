@@ -1,0 +1,22 @@
+syntax = "proto2";
+package labmonitor;
+
+option java_package = "br.ufc.great.protoc";
+option java_outer_classname = "ActuatorsProtos";
+
+message Led {
+  required string color = 1;
+  required string status = 2;
+}
+
+message Buzzer {
+  required int32 freq = 1;
+  required int32 duration = 2;
+  required int32 times = 3;
+  required string status = 4;
+}
+
+message Actuators {
+  optional Led led = 1;
+  optional Buzzer buzzer = 2;
+}

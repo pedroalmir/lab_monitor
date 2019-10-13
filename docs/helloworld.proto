@@ -1,0 +1,26 @@
+syntax = "proto3";
+option java_multiple_files = true;
+option java_package = "io.grpc.examples.helloworld";
+option java_outer_classname = "HelloWorldProto";
+option objc_class_prefix = "HLW";
+
+package helloworld;
+
+service Greeter {
+  rpc AddContato (Contato) returns (Reply) {}
+  rpc ListarContatos (Request) returns (Lista) {}
+}
+message Request {
+  string name = 1;
+}
+message Reply {
+  string message = 1;
+}
+message Contato{
+  string nome = 1;
+  string telefone = 2;
+  int32 idade = 3;
+}
+message Lista{
+  repeated Contato lista = 1;
+}
