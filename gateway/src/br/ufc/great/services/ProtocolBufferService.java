@@ -4,8 +4,8 @@
 package br.ufc.great.services;
 
 import java.io.IOException;
-import java.util.LinkedHashMap;
 
+import com.google.gson.internal.LinkedTreeMap;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import br.ufc.great.protoc.LabMonitorProtos;
@@ -24,7 +24,7 @@ public class ProtocolBufferService {
 	 * @param map
 	 * @return SensorsData object
 	 */
-	public static SensorsData createSensorsDataMessage(LinkedHashMap<String, String> map){
+	public static SensorsData createSensorsDataMessage(LinkedTreeMap<String, String> map){
 		Builder builder = LabMonitorProtos.SensorsData.newBuilder()
 			.setLastUpdated(map.get("date"));
 		

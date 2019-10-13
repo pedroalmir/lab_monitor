@@ -7,6 +7,7 @@ import java.io.UnsupportedEncodingException;
 import java.util.LinkedHashMap;
 
 import com.google.gson.Gson;
+import com.google.gson.internal.LinkedTreeMap;
 
 import net.thegreshams.firebase4j.error.FirebaseException;
 import net.thegreshams.firebase4j.service.Firebase;
@@ -19,15 +20,15 @@ public class MyFirebaseService {
 	 * @return
 	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
-	public static LinkedHashMap<String, String> getLastSensorsData(){
+	public static LinkedTreeMap<String, String> getLastSensorsData(){
 		try {
 			Firebase firebase = new Firebase("https://greatlabmonitor.firebaseio.com");
 			firebase = firebase.addQuery("orderBy", "\"$key\"");
 			firebase = firebase.addQuery("limitToLast", "1");
 			
 			String response = firebase.getAsString("envs/great/lab10/registers");
-			LinkedHashMap result = (LinkedHashMap) new Gson().fromJson(response, Object.class);
-			return (LinkedHashMap<String, String>) result.get(result.keySet().iterator().next());
+			LinkedTreeMap result = (LinkedTreeMap) new Gson().fromJson(response, Object.class);
+			return (LinkedTreeMap<String, String>) result.get(result.keySet().iterator().next());
 		} catch (FirebaseException e1) {
 			e1.printStackTrace();
 		} catch (UnsupportedEncodingException e) {

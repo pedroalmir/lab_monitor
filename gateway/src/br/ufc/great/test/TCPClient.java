@@ -39,7 +39,7 @@ public class TCPClient {
 			
 			//Considering the values of sensors, user can actuate in environment...
 			Actuators.Builder builder = LabMonitorProtos.Actuators.newBuilder();
-			builder.setBuzzer(LabMonitorProtos.Buzzer.newBuilder().setFreq(320).setDuration(500).setTimes(3).setStatus("pending").build());
+			builder.setBuzzer(LabMonitorProtos.Buzzer.newBuilder().setFreq(220).setDuration(1000).setTimes(5).setStatus("pending").build());
 			builder.setLed(LabMonitorProtos.Led.newBuilder().setColor("green").setStatus("on").build());
 			request = LabMonitorProtos.ClientRequest
 				.newBuilder().setReqType(ClientRequest.ClientRequestType.SET_ACTUATORS_VALUE)
