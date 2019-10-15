@@ -35,6 +35,11 @@
 
 #define EULER 2.718281828459045235360287471352
 
+#define WIFI_SSID "GRT-PAV3"
+#define WIFI_PWD "GRT@pav3#2018"
+
+#define FIREBASE_HOST "greatlabmonitor.firebaseio.com"
+#define FIREBASE_AUTH "oM5vOHooBjlTwjFA5QkvUQpF1AbSdM1Fl2NO1JNC"
 
 DHT dht(DHTPIN, DHTTYPE);                     // Create DHT sensor considering port and type
 LiquidCrystal_I2C lcd(0x27,16,2);             // Set the LCD address to 0x27 for a 16 chars and 2 line display
