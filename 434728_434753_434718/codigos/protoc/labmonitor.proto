@@ -1,0 +1,59 @@
+syntax = "proto2";
+package labmonitor;
+
+option java_package = "br.ufc.great.protoc";
+option java_outer_classname = "LabMonitorProtos";
+
+// [Sensors messages]
+message Sensor {
+	required string name = 1;
+	required string value = 2;
+}
+
+message SensorsData {
+	repeated Sensor data = 1;
+	required string last_updated = 2;
+}
+
+// [Actuators messages]
+message Led {
+	required string color = 1;
+	required string status = 2;
+}
+
+message Buzzer {
+	required int32 freq = 1;
+	required int32 duration = 2;
+	required int32 times = 3;
+	required string status = 4;
+}
+
+message Actuators {
+	optional Led led = 1;
+	optional Buzzer buzzer = 2;
+}
+
+// [Client Request messages]
+message ClientRequest {
+	enum ClientRequestType {
+		GET_SENSORS_DATA = 0;
+		SET_ACTUATORS_VALUE = 1;
+	}
+	required ClientRequestType reqType = 1;
+	optional Actuators actuatorsValue = 2;
+}
+
+// [Server Response messages]
+message ServerResponse {
+	enum ServerResponseType {
+		GET_SENSORS_DATA = 0;
+		SET_ACTUATORS_VALUE = 1;
+	}
+	enum ServerResponseStatus {
+		OK = 0;
+		ERROR = 1;
+	}
+	required ServerResponseType respType = 1;
+	required ServerResponseStatus respStatus = 2;
+	optional SensorsData sensorsData = 3;
+}

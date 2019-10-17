@@ -17,9 +17,9 @@ import java.net.UnknownHostException;
 
 import br.ufc.great.protoc.LabMonitorProtos;
 import br.ufc.great.protoc.LabMonitorProtos.ClientRequest;
+import br.ufc.great.protoc.LabMonitorProtos.ClientRequest.ClientRequestType;
 import br.ufc.great.protoc.LabMonitorProtos.SensorsData;
 import br.ufc.great.protoc.LabMonitorProtos.ServerResponse;
-import br.ufc.great.protoc.LabMonitorProtos.ClientRequest.ClientRequestType;
 import br.ufc.great.protoc.LabMonitorProtos.ServerResponse.Builder;
 import br.ufc.great.services.MyFirebaseService;
 import br.ufc.great.services.ProtocolBufferService;
@@ -63,8 +63,8 @@ public class MainDesktopController {
 		ServerSocket listenSocket = null;
 		try {
 			listenSocket = new ServerSocket(TCP_PORT);
+			System.out.println("Receiving client connections...");
 			while (true) {
-				System.out.println("Receiving client connections...");
 				Socket clientSocket = listenSocket.accept();
 				Connection c = new Connection(clientSocket);
 				c.start();
@@ -102,21 +102,26 @@ class BroadcastReceiver extends Thread {
 			System.out.println("Broadcast receiver listening...");
 			byte[] receiveData = new byte[1024];
 			
-			while (!MainDesktopController.hasAnswer) {
+			while (true) {
 				DatagramPacket request = new DatagramPacket(receiveData, receiveData.length);
 				serverSocket.receive(request);
-
+				
 				String sentence = new String(request.getData(), 0, request.getLength());
-				System.out.println("IP: " + request.getAddress().getHostAddress() + ", Port: " + request.getPort());
+				System.out.println("\n##########################################################");
+				System.out.println("New broadcast message from device [" + request.getAddress().getHostAddress() + ":" + request.getPort() + "]");
 				System.out.println("Message: " + sentence);
+				System.out.println("##########################################################\n");
+				
+				String firebaseURL = sentence.split(":")[1].trim();
+				MyFirebaseService.firebaseURL = "https://" + firebaseURL;
 				
 				MainDesktopController.hasAnswer = true;
 			}
 		} catch (SocketException e) {
 			e.printStackTrace();
+			if (serverSocket != null) serverSocket.close();
 		} catch (IOException e) {
 			e.printStackTrace();
-		} finally {
 			if (serverSocket != null) serverSocket.close();
 		}
 	}
@@ -148,6 +153,7 @@ class Connection extends Thread {
 			try {
 				Builder responseBuilder = LabMonitorProtos.ServerResponse.newBuilder();
 				ClientRequest clientRequest = ClientRequest.parseDelimitedFrom(inputStream);
+				System.out.println("New request client: " + clientRequest.toString());
 				
 				ClientRequestType reqType = clientRequest.getReqType();
 				if(reqType.getNumber() == ClientRequestType.GET_SENSORS_DATA_VALUE){

@@ -1,0 +1,16 @@
+########################
+	   LabMonitor
+	 HowTo Execute
+########################
+1. Iniciar sensores;
+2. Abrir terminal para gateway:
+	2.1. Executar comando: java -jar gateway-sd-2.0.0.jar
+3. Abrir outro terminal para cliente:
+	3.1. Executar comando p/ sensores: java -jar client-sd-1.0.0.jar sensors -ip 127.0.0.1 -port 7896
+	3.2. Executar comando p/ atuadors: java -jar client-sd-1.0.0.jar actuator -ip 127.0.0.1 -port 7896 -ledColor red -ledStatus on -buzzerFreq 220 -buzzerDuration 500 -buzzerTimes 5 -buzzerStatus pending
+
+Obs.1: Alternativamente, o gateway pode ser iniciado primeiro;
+Obs.2: Tanto os sensores, o gateway e o cliente precisam estar na mesma subrede para o serviço de descoberta;
+Obs.3: O Wireshark pode ser aberto para mostrar as requisições UDP e TPC.
+Usar filtro: (udp && ip.dst == 255.255.255.255 && not dhcp)
+Obs.4: O Firebase pode ser aberto para mostrar dados sendo salvos.

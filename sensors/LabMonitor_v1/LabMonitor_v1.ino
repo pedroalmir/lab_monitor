@@ -35,11 +35,11 @@
 
 #define EULER 2.718281828459045235360287471352
 
-#define WIFI_SSID "GRT-PAV3"
-#define WIFI_PWD "GRT@pav3#2018"
+#define WIFI_SSID
+#define WIFI_PWD
 
-#define FIREBASE_HOST "greatlabmonitor.firebaseio.com"
-#define FIREBASE_AUTH "oM5vOHooBjlTwjFA5QkvUQpF1AbSdM1Fl2NO1JNC"
+#define FIREBASE_HOST
+#define FIREBASE_AUTH
 
 DHT dht(DHTPIN, DHTTYPE);                     // Create DHT sensor considering port and type
 LiquidCrystal_I2C lcd(0x27,16,2);             // Set the LCD address to 0x27 for a 16 chars and 2 line display
@@ -100,7 +100,7 @@ void setup() {
   lcd.setCursor(0,0);
   lcd.backlight();
   lcd.clear();
-  lcd.print("Lab. Monitor v1");
+  lcd.print("GREat LabMonitor");
 
   connectWifi();
   connectFirebase();
@@ -110,6 +110,14 @@ void setup() {
 
   Udp.begin(localUdpPort);
   Serial.printf("Now listening at IP %s, UDP port %d\n", WiFi.localIP().toString().c_str(), localUdpPort);
+
+  IPAddress ip(255, 255, 255, 255);
+  unsigned int port = 54809;
+  
+  // Send back a reply, to the IP address and port we got the packet from
+  Udp.beginPacket(ip, port);
+  Udp.print("Hi. I am here! Saving data in: greatlabmonitor.firebaseio.com");
+  Udp.endPacket();
   
   /* Initializing the DHT sensor */
   dht.begin();
@@ -145,10 +153,10 @@ void connectWifi(){
   WiFi.begin(WIFI_SSID, WIFI_PWD);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);Serial.println("Connecting to WiFi...");
-    printMessageLCD("GREat Lab Monitor", "Connecting...");
+    printMessageLCD("GREat LabMonitor", "Connecting...");
   }
   Serial.println("Connected to the WiFi network");
-  printMessageLCD("GREat Lab Monitor", "Connected!!!");
+  printMessageLCD("GREat LabMonitor", "Connected!!!");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 }
@@ -407,7 +415,7 @@ void loop() {
   }
 
   if(cont == 60){
-    printMessageLCD("GREat Lab Monitor", "Monitoring...");
+    printMessageLCD("GREat LabMonitor", "Monitoring...");
     saveSensorData(getActualDate(), getTemperature(), getHumidity(), getMQ7Value(), String(getLumenValue()), getDistance(), getKY38Value());
   }
 

@@ -16,13 +16,16 @@ import net.thegreshams.firebase4j.service.Firebase;
  * @author PedroAlmir
  */
 public class MyFirebaseService {
+	
+	public static String firebaseURL = "https://greatlabmonitor.firebaseio.com";
+	
 	/**
 	 * @return
 	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static LinkedTreeMap<String, String> getLastSensorsData(){
 		try {
-			Firebase firebase = new Firebase("https://greatlabmonitor.firebaseio.com");
+			Firebase firebase = new Firebase(MyFirebaseService.firebaseURL);
 			firebase = firebase.addQuery("orderBy", "\"$key\"");
 			firebase = firebase.addQuery("limitToLast", "1");
 			
@@ -44,7 +47,7 @@ public class MyFirebaseService {
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static LinkedHashMap<String, String> getActuatorStatus(){
 		try {
-			Firebase firebase = new Firebase("https://greatlabmonitor.firebaseio.com");
+			Firebase firebase = new Firebase(MyFirebaseService.firebaseURL);
 			String response = firebase.getAsString("envs/great/lab10/info/actuators");
 			return (LinkedHashMap) new Gson().fromJson(response, Object.class);
 		} catch (FirebaseException e1) {
@@ -64,7 +67,7 @@ public class MyFirebaseService {
 	 */
 	public static void updateLedActuator(String color, String status){
 		try {
-			Firebase firebase = new Firebase("https://greatlabmonitor.firebaseio.com");
+			Firebase firebase = new Firebase(MyFirebaseService.firebaseURL);
 			firebase.putAsString("envs/great/lab10/info/actuators/led", "{\"status\":\"" + status + "\", \"color\":\"" + color + "\"}");
 		} catch (FirebaseException e1) {
 			e1.printStackTrace();
@@ -83,7 +86,7 @@ public class MyFirebaseService {
 	 */
 	public static void updateBuzzerActuator(int freq, int duration, int times, String status){
 		try {
-			Firebase firebase = new Firebase("https://greatlabmonitor.firebaseio.com");
+			Firebase firebase = new Firebase(MyFirebaseService.firebaseURL);
 			firebase.putAsString("envs/great/lab10/info/actuators/buzzer", "{\"freq\":" + freq + ", \"duration\":" + duration + ", \"times\":" + times + ", \"status\":\"" + status + "\"}");
 		} catch (FirebaseException e1) {
 			e1.printStackTrace();
@@ -97,7 +100,7 @@ public class MyFirebaseService {
 	 */
 	public static void updateActuators(String json){
 		try {
-			Firebase firebase = new Firebase("https://greatlabmonitor.firebaseio.com");
+			Firebase firebase = new Firebase(MyFirebaseService.firebaseURL);
 			firebase.patchAsString("envs/great/lab10/info/actuators", json);
 		} catch (FirebaseException e1) {
 			e1.printStackTrace();
